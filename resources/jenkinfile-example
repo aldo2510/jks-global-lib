@@ -1,0 +1,70 @@
+@Library('my-shared-library') _
+
+pipeline {
+    agent any
+
+    environment {
+        CLUSTER_NAME = 'my-cluster'
+        REGION = 'us-east-1'
+        INSTANCE_TYPE = 't2.medium'
+        APP_PACKAGE = 'my-app-deployment.yaml'
+        SECRET_NAME = 'my-api-key'
+        USER = 'jenkins-user'
+    }
+
+    stages {
+        stage('Provision Cluster') {
+            steps {
+                script {
+                    provisionCluster(CLUSTER_NAME, REGION, INSTANCE_TYPE)
+                    auditAction("Provisioning cluster ${CLUSTER_NAME}", USER)
+                }
+            }
+        }
+
+        stage('Deploy App') {
+            steps {
+                script {
+                    deployApp(CLUSTER_NAME, APP_PACKAGE)
+                    auditAction("Deploying app to ${CLUSTER_NAME}", USER)
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    runTests(CLUSTER_NAME, APP_PACKAGE)
+                    auditAction("Running tests on ${APP_PACKAGE} in ${CLUSTER_NAME}", USER)
+                }
+            }
+        }
+
+        stage('Monitor Cluster') {
+            steps {
+                script {
+                    monitor(CLUSTER_NAME)
+                    auditAction("Monitoring cluster ${CLUSTER_NAME}", USER)
+                }
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                script {
+                    def apiKey = fetchSecrets(SECRET_NAME)
+                    echo "Secret fetched: ${apiKey}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+    }
+}
